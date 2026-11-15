@@ -600,7 +600,7 @@ function parseBatchInput(text) {
 
     // Extract lyrics in quotes first (supports "" "" '' and '')
     const lyricsMatch = mainPart.match(/[""「](.+?)[""」]|[''『](.+?)[''』]/);
-    iif (lyricsMatch) {
+    if (lyricsMatch) {
       lyrics = lyricsMatch[1] || lyricsMatch[2] || '';
       mainPart = mainPart.replace(lyricsMatch[0], '').trim();
     }
