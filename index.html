@@ -79,8 +79,6 @@
   .btn-secondary:hover { border-color: var(--text-muted); }
   .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
   .btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
-  .btn-success { background: var(--success); color: white; }
-  .btn-success:hover { opacity: 0.9; }
   .btn-sm { padding: 6px 12px; font-size: 12px; }
   .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -254,8 +252,12 @@
         </div>
       </div>
       <div class="form-group">
-        <label>参考信息（可选）</label>
-        <textarea id="bgmNotes" placeholder="如：清冷、孤独感、适合暗黑风..."></textarea>
+        <label>主要歌词（可选，填你最喜欢的那句）</label>
+        <textarea id="bgmLyrics" rows="2" style="min-height:50px;" placeholder="例如：我曾将青春翻涌成她"></textarea>
+      </div>
+      <div class="form-group">
+        <label>参考标签/备注（可选）</label>
+        <textarea id="bgmNotes" rows="2" style="min-height:50px;" placeholder="如：清冷、孤独感、适合暗黑风..."></textarea>
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" onclick="addBgmWithAi()">🤖 AI分析并添加</button>
@@ -282,29 +284,28 @@
       <div class="batch-format-hint">
         <strong>支持的格式（每行一首，格式随意混搭）：</strong><br>
         <code>歌名 - 歌手</code><br>
-        <code>歌名 / 歌手</code><br>
-        <code>歌手 - 歌名</code>（会自动识别）<br>
         <code>歌名 - 歌手 | 备注标签</code><br>
         <code>歌名 - 歌手 #清冷 #暗黑</code><br>
-        <code>纯歌名（没有歌手也行，AI会尝试识别）</code>
+        <code>歌名 - 歌手 "我最喜欢的那句歌词"</code><br>
+        <code>歌名 - 歌手 | 清冷 治愈 "歌词写在引号里"</code><br>
+        <code>纯歌名（没有歌手也行，AI会尝试识别）</code><br><br>
+        <strong>💡 歌词用引号括起来，AI会优先使用你填的歌词，不会瞎编。</strong>
       </div>
       <div class="form-group">
         <label>粘贴你的BGM列表（每行一首）</label>
-        <textarea id="batchInput" style="min-height:200px;" placeholder="例如：&#10;起风了 - 买辣椒也用券&#10;嘘 - 尤长靖 | 清冷 治愈&#10;达拉崩吧 / 周深&#10;光年之外 - 邓紫棋 #史诗 #燃向&#10;unravel - TK&#10;夜に駆ける - YOASOBI"></textarea>
+        <textarea id="batchInput" style="min-height:200px;" placeholder="例如：&#10;起风了 - 买辣椒也用券 &quot;我曾将青春翻涌成她&quot;&#10;嘘 - 尤长靖 | 清冷 治愈&#10;达拉崩吧 / 周深&#10;光年之外 - 邓紫棋 #史诗 #燃向 &quot;我们的爱穿过了光年之外&quot;&#10;unravel - TK &quot;教えてよ 教えてよ&quot;&#10;夜に駆ける - YOASOBI"></textarea>
       </div>
       <div class="btn-group">
         <button class="btn btn-secondary" onclick="previewBatch()">👁️ 预览解析结果</button>
         <button class="btn btn-primary" onclick="startBatchAdd()" id="batchAddBtn">🚀 一键AI批量分析</button>
       </div>
     </div>
-
     <div id="batchPreview" style="display:none;">
       <div class="card">
         <div class="card-title">👁️ 解析预览 <span id="batchPreviewCount" style="color:var(--text-muted); font-size:13px; font-weight:400;"></span></div>
         <div class="batch-preview" id="batchPreviewList"></div>
       </div>
     </div>
-
     <div id="batchProgress" style="display:none;">
       <div class="card">
         <div class="card-title">🤖 AI批量分析进度</div>
@@ -390,101 +391,74 @@
 let state = {
   bgmLibrary: [],
   apiConfig: { baseUrl: '', apiKey: '', textModel: '', visionModel: '' },
-  activeFilter: null,
-  editingId: null,
-  uploadedImage: null,
-  batchParsed: []
+  activeFilter: null, editingId: null, uploadedImage: null, batchParsed: []
 };
 
 // ==================== Init ====================
 function init() {
-  loadState();
-  renderBgmList();
-  updateStats();
-  updateFilterTags();
-  restoreApiFields();
-  setupDragDrop();
+  loadState(); renderBgmList(); updateStats(); updateFilterTags(); restoreApiFields(); setupDragDrop();
 }
-
 function loadState() {
   try {
-    const saved = localStorage.getItem('bgm_workshop_data');
-    if (saved) state.bgmLibrary = JSON.parse(saved).bgmLibrary || [];
-    const apiSaved = localStorage.getItem('bgm_workshop_api');
-    if (apiSaved) state.apiConfig = JSON.parse(apiSaved);
-  } catch(e) { console.error('Load error:', e); }
+    const s = localStorage.getItem('bgm_workshop_data');
+    if (s) state.bgmLibrary = JSON.parse(s).bgmLibrary || [];
+    const a = localStorage.getItem('bgm_workshop_api');
+    if (a) state.apiConfig = JSON.parse(a);
+  } catch(e) { console.error(e); }
 }
-
-function saveState() {
-  localStorage.setItem('bgm_workshop_data', JSON.stringify({ bgmLibrary: state.bgmLibrary }));
-}
-
+function saveState() { localStorage.setItem('bgm_workshop_data', JSON.stringify({ bgmLibrary: state.bgmLibrary })); }
 function restoreApiFields() {
   document.getElementById('apiBaseUrl').value = state.apiConfig.baseUrl || '';
   document.getElementById('apiKey').value = state.apiConfig.apiKey || '';
-  if (state.apiConfig.baseUrl && state.apiConfig.apiKey) {
+  if (state.apiConfig.baseUrl && state.apiConfig.apiKey)
     updateApiStatus('connected', `已连接 · 文本: ${state.apiConfig.textModel || '未选'} · 视觉: ${state.apiConfig.visionModel || '未选'}`);
-  }
 }
 
 // ==================== Tabs ====================
-function switchTab(tabId, btn) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + tabId).classList.add('active');
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
 }
 
 // ==================== Toast ====================
 function showToast(msg, type = 'info') {
-  const c = document.getElementById('toastContainer');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  c.appendChild(t);
+  const c = document.getElementById('toastContainer'), t = document.createElement('div');
+  t.className = `toast ${type}`; t.textContent = msg; c.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
 }
 
 // ==================== API ====================
-function updateApiStatus(status, text) {
+function updateApiStatus(s, t) {
   const el = document.getElementById('apiStatus');
-  const dot = status === 'connected' ? 'connected' : status === 'loading' ? 'loading' : 'disconnected';
-  el.innerHTML = `<span class="status-dot ${dot}"></span><span>${text}</span>`;
+  el.innerHTML = `<span class="status-dot ${s === 'connected' ? 'connected' : s === 'loading' ? 'loading' : 'disconnected'}"></span><span>${t}</span>`;
 }
-
 async function connectApi() {
-  const baseUrl = document.getElementById('apiBaseUrl').value.trim();
-  const apiKey = document.getElementById('apiKey').value.trim();
-  if (!baseUrl || !apiKey) { showToast('请填写API地址和Key', 'error'); return; }
+  const b = document.getElementById('apiBaseUrl').value.trim(), k = document.getElementById('apiKey').value.trim();
+  if (!b || !k) { showToast('请填写API地址和Key', 'error'); return; }
   updateApiStatus('loading', '正在连接...');
   try {
-    const resp = await fetch(baseUrl.replace(/\/+$/, '') + '/models', { headers: { 'Authorization': `Bearer ${apiKey}` } });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    const models = (data.data || data.models || []).map(m => m.id || m.name).sort();
-    if (models.length === 0) throw new Error('未获取到模型');
-    const ts = document.getElementById('textModel');
-    const vs = document.getElementById('visionModel');
+    const r = await fetch(b.replace(/\/+$/, '') + '/models', { headers: { 'Authorization': `Bearer ${k}` } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json(), ms = (d.data || d.models || []).map(m => m.id || m.name).sort();
+    if (!ms.length) throw new Error('未获取到模型');
+    const ts = document.getElementById('textModel'), vs = document.getElementById('visionModel');
     ts.innerHTML = vs.innerHTML = '<option value="">-- 请选择 --</option>';
-    models.forEach(n => { ts.innerHTML += `<option value="${n}">${n}</option>`; vs.innerHTML += `<option value="${n}">${n}</option>`; });
+    ms.forEach(n => { ts.innerHTML += `<option value="${n}">${n}</option>`; vs.innerHTML += `<option value="${n}">${n}</option>`; });
     if (state.apiConfig.textModel) ts.value = state.apiConfig.textModel;
     if (state.apiConfig.visionModel) vs.value = state.apiConfig.visionModel;
     document.getElementById('modelSelectCard').style.display = 'block';
-    updateApiStatus('connected', `已连接 · ${models.length} 个模型`);
-    showToast(`连接成功，${models.length}个模型`, 'success');
-  } catch(e) {
-    updateApiStatus('disconnected', `连接失败: ${e.message}`);
-    showToast('连接失败: ' + e.message, 'error');
-  }
+    updateApiStatus('connected', `已连接 · ${ms.length} 个模型`);
+    showToast(`连接成功，${ms.length}个模型`, 'success');
+  } catch(e) { updateApiStatus('disconnected', `失败: ${e.message}`); showToast('连接失败: ' + e.message, 'error'); }
 }
-
 function saveApiSettings() {
   state.apiConfig.baseUrl = document.getElementById('apiBaseUrl').value.trim();
   state.apiConfig.apiKey = document.getElementById('apiKey').value.trim();
   localStorage.setItem('bgm_workshop_api', JSON.stringify(state.apiConfig));
   showToast('API设置已保存', 'success');
 }
-
 function saveModelSelection() {
   state.apiConfig.textModel = document.getElementById('textModel').value;
   state.apiConfig.visionModel = document.getElementById('visionModel').value;
@@ -492,31 +466,26 @@ function saveModelSelection() {
   updateApiStatus('connected', `已连接 · 文本: ${state.apiConfig.textModel || '未选'} · 视觉: ${state.apiConfig.visionModel || '未选'}`);
   showToast('模型已保存', 'success');
 }
-
 async function callApi(messages, useVision = false) {
   const model = useVision ? state.apiConfig.visionModel : state.apiConfig.textModel;
   if (!model) throw new Error(useVision ? '请先选择视觉模型' : '请先选择文本模型');
-  const resp = await fetch(state.apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+  const r = await fetch(state.apiConfig.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiConfig.apiKey}` },
     body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 4000 })
   });
-  if (!resp.ok) throw new Error(`API错误 (${resp.status}): ${await resp.text()}`);
-  return (await resp.json()).choices[0].message.content;
+  if (!r.ok) throw new Error(`API错误 (${r.status}): ${await r.text()}`);
+  return (await r.json()).choices[0].message.content;
 }
-
 async function testTextApi() {
   const el = document.getElementById('testResult');
-  el.innerHTML = '<span class="spinner"></span> 测试文本能力...';
-  try {
-    const r = await callApi([{ role: 'user', content: '用一句话描述"清冷孤独"情绪适合什么BGM。' }]);
-    el.innerHTML = `<span style="color:var(--success);">✅ 文本正常</span><br><span style="color:var(--text-muted);font-size:12px;">${r}</span>`;
-  } catch(e) { el.innerHTML = `<span style="color:var(--danger);">❌ 失败: ${e.message}</span>`; }
+  el.innerHTML = '<span class="spinner"></span> 测试文本...';
+  try { const r = await callApi([{ role: 'user', content: '用一句话描述"清冷孤独"情绪适合什么BGM。' }]); el.innerHTML = `<span style="color:var(--success);">✅ 文本正常</span><br><span style="color:var(--text-muted);font-size:12px;">${r}</span>`; }
+  catch(e) { el.innerHTML = `<span style="color:var(--danger);">❌ 失败: ${e.message}</span>`; }
 }
-
 async function testVisionApi() {
   const el = document.getElementById('testResult');
-  el.innerHTML = '<span class="spinner"></span> 测试识图能力...';
+  el.innerHTML = '<span class="spinner"></span> 测试识图...';
   try {
     const svg = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="#7c3aed" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="14">Test</text></svg>');
     const r = await callApi([{ role: 'user', content: [{ type: 'text', text: '描述这张图片，一句话。' }, { type: 'image_url', image_url: { url: svg } }] }], true);
@@ -530,18 +499,28 @@ function generateId() { return Date.now().toString(36) + Math.random().toString(
 async function addBgmWithAi() {
   const name = document.getElementById('bgmName').value.trim();
   const artist = document.getElementById('bgmArtist').value.trim();
+  const lyrics = document.getElementById('bgmLyrics').value.trim();
   const notes = document.getElementById('bgmNotes').value.trim();
   if (!name || !artist) { showToast('请填写歌名和歌手', 'error'); return; }
   if (!state.apiConfig.textModel) { showToast('请先选择文本模型', 'error'); return; }
-  const btn = event.target; const orig = btn.innerHTML;
+  const btn = event.target, orig = btn.innerHTML;
   btn.innerHTML = '<span class="spinner"></span> AI分析中...'; btn.disabled = true;
   try {
-    const parsed = await aiAnalyzeSongs([{ name, artist, notes }]);
+    const parsed = await aiAnalyzeSongs([{ name, artist, lyrics, notes }]);
     if (parsed.length > 0) {
       const p = parsed[0];
-      state.bgmLibrary.push({ id: generateId(), name, artist, tags: p.mood_tags || [], lyrics: p.lyrics_summary || '', scene: p.scene || '', style: p.style || '', notes, addedAt: new Date().toISOString() });
+      state.bgmLibrary.push({
+        id: generateId(), name, artist,
+        tags: p.mood_tags || [],
+        lyrics: lyrics || p.lyrics_summary || '',
+        scene: p.scene || '', style: p.style || '',
+        notes, addedAt: new Date().toISOString()
+      });
       saveState(); renderBgmList(); updateStats(); updateFilterTags();
-      document.getElementById('bgmName').value = ''; document.getElementById('bgmArtist').value = ''; document.getElementById('bgmNotes').value = '';
+      document.getElementById('bgmName').value = '';
+      document.getElementById('bgmArtist').value = '';
+      document.getElementById('bgmLyrics').value = '';
+      document.getElementById('bgmNotes').value = '';
       showToast(`✅ "${name}" 已添加`, 'success');
     }
   } catch(e) { showToast('AI分析失败: ' + e.message, 'error'); }
@@ -551,60 +530,32 @@ async function addBgmWithAi() {
 function addBgmManual() {
   const name = document.getElementById('bgmName').value.trim();
   const artist = document.getElementById('bgmArtist').value.trim();
+  const lyrics = document.getElementById('bgmLyrics').value.trim();
   const notes = document.getElementById('bgmNotes').value.trim();
   if (!name || !artist) { showToast('请填写歌名和歌手', 'error'); return; }
-  state.bgmLibrary.push({ id: generateId(), name, artist, tags: notes ? notes.split(/[,，、\s]+/).filter(Boolean) : [], lyrics: '', scene: '', style: '', notes, addedAt: new Date().toISOString() });
+  state.bgmLibrary.push({
+    id: generateId(), name, artist,
+    tags: notes ? notes.split(/[,，、\s]+/).filter(Boolean) : [],
+    lyrics: lyrics, scene: '', style: '', notes,
+    addedAt: new Date().toISOString()
+  });
   saveState(); renderBgmList(); updateStats(); updateFilterTags();
-  document.getElementById('bgmName').value = ''; document.getElementById('bgmArtist').value = ''; document.getElementById('bgmNotes').value = '';
+  document.getElementById('bgmName').value = '';
+  document.getElementById('bgmArtist').value = '';
+  document.getElementById('bgmLyrics').value = '';
+  document.getElementById('bgmNotes').value = '';
   showToast(`✅ "${name}" 已手动添加`, 'success');
 }
 
-// ==================== Batch Add ====================
-function parseBatchInput(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  return lines.map(line => {
-    let name = '', artist = '', notes = '';
-    // Extract notes after | or #
-    let mainPart = line;
-    const pipeIdx = line.indexOf('|');
-    if (pipeIdx > 0) { mainPart = line.substring(0, pipeIdx).trim(); notes = line.substring(pipeIdx + 1).trim(); }
-    const hashMatch = mainPart.match(/^(.*?)(#.+)$/);
-    if (hashMatch) { mainPart = hashMatch[1].trim(); notes = (notes + ' ' + hashMatch[2].replace(/#/g, '')).trim(); }
-    // Split name and artist
-    let sep = null;
-    if (mainPart.includes(' - ')) sep = ' - ';
-    else if (mainPart.includes(' / ')) sep = ' / ';
-    else if (mainPart.includes('／')) sep = '／';
-    else if (mainPart.includes('——')) sep = '——';
-    if (sep) {
-      const parts = mainPart.split(sep).map(s => s.trim());
-      name = parts[0]; artist = parts.slice(1).join(sep);
-    } else {
-      name = mainPart; artist = '';
-    }
-    return { name, artist, notes, status: 'pending' };
-  }).filter(item => item.name);
-}
-
-function previewBatch() {
-  const text = document.getElementById('batchInput').value.trim();
-  if (!text) { showToast('请先粘贴BGM列表', 'error'); return; }
-  state.batchParsed = parseBatchInput(text);
-  if (state.batchParsed.length === 0) { showToast('未能解析出任何歌曲', 'error'); return; }
-  const container = document.getElementById('batchPreviewList');
-  container.innerHTML = state.batchParsed.map((item, i) =>
-    `<div class="batch-preview-item">
-      <div><span class="name">${escapeHtml(item.name)}</span> ${item.artist ? `<span class="artist">- ${escapeHtml(item.artist)}</span>` : '<span class="artist" style="color:var(--warning);">(未识别歌手)</span>'} ${item.notes ? `<span class="artist">| ${escapeHtml(item.notes)}</span>` : ''}</div>
-      <span class="status-icon" id="batchStatus_${i}">⏳</span>
-    </div>`
-  ).join().join('');
-  document.getElementById('batchPreviewCount').textContent = `共 ${state.batchParsed.length} 首`;
-  document.getElementById('batchPreview').style.display = 'block';
-  showToast(`解析出 ${state.batchParsed.length} 首歌曲`, 'success');
-}
-
+// ==================== AI Analysis (Core Change) ====================
 async function aiAnalyzeSongs(songs) {
-  const songList = songs.map((s, i) => `${i + 1}. ${s.name}${s.artist ? ' - ' + s.artist : ''}${s.notes ? ' (' + s.notes + ')' : ''}`).join('\n');
+  const songList = songs.map((s, i) => {
+    let line = `${i + 1}. ${s.name}${s.artist ? ' - ' + s.artist : ''}`;
+    if (s.lyrics) line += ` [用户提供歌词: "${s.lyrics}"]`;
+    if (s.notes) line += ` (备注: ${s.notes})`;
+    return line;
+  }).join('\n');
+
   const prompt = `你是专业音乐分析助手。请分析以下歌曲，为每首歌生成情绪标签和信息。
 
 歌曲列表：
@@ -616,8 +567,8 @@ ${songList}
     {
       "index": 1,
       "name": "歌名",
-      "artist": "歌手（如果用户没提供歌手，请根据你的知识补全；如果不确定就填'未知'）",
-      "lyrics_summary": "最有代表性的1-2句歌词原文（不知道就填'暂无'）",
+      "artist": "歌手（用户没提供就根据知识补全，不确定填'未知'）",
+      "lyrics_summary": "歌词处理规则见下方",
       "mood_tags": ["标签1", "标签2", "标签3"],
       "scene": "适合的画面/场景描述",
       "style": "音乐风格"
@@ -625,10 +576,14 @@ ${songList}
   ]
 }
 
-注意：
-- mood_tags 给3-5个中文情绪关键词
-- 每首歌都要分析，不要遗漏
-- 如果不确定歌曲信息，根据歌名合理推断`;
+【歌词处理的严格规则 - 非常重要！】
+1. 如果用户在 [用户提供歌词: "..."] 中已经给出了歌词，直接原样使用用户提供的歌词，不要修改、不要替换、不要补充。
+2. 如果用户没有提供歌词，而你100%确定知道这首歌的真实歌词，可以填写1-2句最有代表性的原文歌词。
+3. 如果用户没有提供歌词，而你不确定或不知道这首歌的歌词，必须填写"暂无"。绝对不要编造歌词！宁可填"暂无"也不要瞎写。
+
+【其他注意事项】
+- mood_tags 给3-5个中文情绪关键词，如：清冷、孤独、甜蜜、燃向、史诗、治愈、暗黑、温柔、悲伤、热血、浪漫、空灵、压迫感等
+- 每首歌都要分析，不要遗漏`;
 
   const result = await callApi([{ role: 'user', content: prompt }]);
   const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -636,81 +591,118 @@ ${songList}
   return parsed.songs || [];
 }
 
-async function startBatchAdd() {
-  if (state.batchParsed.length === 0) {
-    previewBatch();
-    if (state.batchParsed.length === 0) return;
-  }
-  if (!state.apiConfig.textModel) { showToast('请先选择文本模型', 'error'); return; }
+// ==================== Batch Add ====================
+function parseBatchInput(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  return lines.map(line => {
+    let name = '', artist = '', notes = '', lyrics = '';
+    let mainPart = line;
 
+    // Extract lyrics in quotes first (supports "" "" '' and '')
+    const lyricsMatch = mainPart.match(/[""「](.+?)[""」]|[''『](.+?)[''』]/);
+    iif (lyricsMatch) {
+      lyrics = lyricsMatch[1] || lyricsMatch[2] || '';
+      mainPart = mainPart.replace(lyricsMatch[0], '').trim();
+    }
+
+    // Extract notes after |
+    const pipeIdx = mainPart.indexOf('|');
+    if (pipeIdx > 0) { const rest = mainPart.substring(pipeIdx + 1).trim(); mainPart = mainPart.substring(0, pipeIdx).trim(); notes = rest; }
+
+    // Extract hashtags
+    const hashMatch = mainPart.match(/^(.*?)(#.+)$/);
+    if (hashMatch) { mainPart = hashMatch[1].trim(); notes = (notes + ' ' + hashMatch[2].replace(/#/g, ' ')).trim(); }
+
+    // Split name and artist
+    let sep = null;
+    if (mainPart.includes(' - ')) sep = ' - ';
+    else if (mainPart.includes(' / ')) sep = ' / ';
+    else if (mainPart.includes('／')) sep = '／';
+    else if (mainPart.includes('——')) sep = '——';
+    if (sep) { const parts = mainPart.split(sep).map(s => s.trim()); name = parts[0]; artist = parts.slice(1).join(sep); }
+    else { name = mainPart; artist = ''; }
+
+    return { name, artist, lyrics, notes, status: 'pending' };
+  }).filter(item => item.name);
+}
+
+function previewBatch() {
+  const text = document.getElementById('batchInput').value.trim();
+  if (!text) { showToast('请先粘贴BGM列表', 'error'); return; }
+  state.batchParsed = parseBatchInput(text);
+  if (!state.batchParsed.length) { showToast('未解析出歌曲', 'error'); return; }
+  document.getElementById('batchPreviewList').innerHTML = state.batchParsed.map((item, i) =>
+    `<div class="batch-preview-item">
+      <div>
+        <span class="name">${escapeHtml(item.name)}</span>
+        ${item.artist ? `<span class="artist"> - ${escapeHtml(item.artist)}</span>` : '<span class="artist" style="color:var(--warning);">(未识别歌手)</span>'}
+        ${item.lyrics ? `<span class="artist" style="color:#a78bfa;"> 🎤"${escapeHtml(item.lyrics)}"</span>` : ''}
+        ${item.notes ? `<span class="artist"> | ${escapeHtml(item.notes)}</span>` : ''}
+      </div>
+      <span class="status-icon" id="batchStatus_${i}">⏳</span>
+    </div>`
+  ).join('');
+  document.getElementById('batchPreviewCount').textContent = `共 ${state.batchParsed.length} 首`;
+  document.getElementById('batchPreview').style.display = 'block';
+  showToast(`解析出 ${state.batchParsed.length} 首`, 'success');
+}
+
+async function startBatchAdd() {
+  if (!state.batchParsed.length) { previewBatch(); if (!state.batchParsed.length) return; }
+  if (!state.apiConfig.textModel) { showToast('请先选择文本模型', 'error'); return; }
   const btn = document.getElementById('batchAddBtn');
   btn.innerHTML = '<span class="spinner"></span> 批量分析中...'; btn.disabled = true;
   document.getElementById('batchProgress').style.display = 'block';
-
-  const BATCH_SIZE = 10;
-  const total = state.batchParsed.length;
-  let processed = 0, successCount = 0, failCount = 0;
-  const logDiv = document.getElementById('batchLog');
-  logDiv.innerHTML = '';
+  const BATCH_SIZE = 10, total = state.batchParsed.length;
+  let processed = 0, ok = 0, fail = 0;
+  const log = document.getElementById('batchLog'); log.innerHTML = '';
 
   for (let i = 0; i < total; i += BATCH_SIZE) {
-    const chunk = state.batchParsed.slice(i, i + BATCH_SIZE);
-    const chunkStart = i;
-    updateBatchProgress(processed, total, `正在分析第 ${i + 1}-${Math.min(i + BATCH_SIZE, total)} 首...`);
-
+    const chunk = state.batchParsed.slice(i, i + BATCH_SIZE), start = i;
+    updateBatchProgress(processed, total, `正在分析第 ${i+1}-${Math.min(i+BATCH_SIZE, total)} 首...`);
     try {
       const results = await aiAnalyzeSongs(chunk);
       chunk.forEach((item, j) => {
-        const globalIdx = chunkStart + j;
-        const aiResult = results[j] || {};
+        const ai = results[j] || {}, idx = start + j;
         const bgm = {
-          id: generateId(),
-          name: item.name,
-          artist: item.artist || aiResult.artist || '未知',
-          tags: aiResult.mood_tags || [],
-          lyrics: aiResult.lyrics_summary || '',
-          scene: aiResult.scene || '',
-          style: aiResult.style || '',
-          notes: item.notes,
-          addedAt: new Date().toISOString()
+          id: generateId(), name: item.name,
+          artist: item.artist || ai.artist || '未知',
+          tags: ai.mood_tags || [],
+          lyrics: item.lyrics || ai.lyrics_summary || '',
+          scene: ai.scene || '', style: ai.style || '',
+          notes: item.notes, addedAt: new Date().toISOString()
         };
-        state.bgmLibrary.push(bgm);
-        successCount++;
-        const statusEl = document.getElementById(`batchStatus_${globalIdx}`);
-        if (statusEl) statusEl.textContent = '✅';
-        logDiv.innerHTML += `<div style="font-size:12px; color:var(--success); padding:2px 0;">✅ ${escapeHtml(bgm.name)} - ${escapeHtml(bgm.artist)} [${(bgm.tags || []).join(', ')}]</div>`;
+        if (item.lyrics) bgm.lyrics = item.lyrics;
+        state.bgmLibrary.push(bgm); ok++;
+        const el = document.getElementById(`batchStatus_${idx}`); if (el) el.textContent = '✅';
+        log.innerHTML += `<div style="font-size:12px;color:var(--success);padding:2px 0;">✅ ${escapeHtml(bgm.name)} - ${escapeHtml(bgm.artist)} [${(bgm.tags||[]).join(', ')}]${bgm.lyrics && bgm.lyrics !== '暂无' ? ` 🎤"${escapeHtml(bgm.lyrics)}"` : ''}</div>`;
       });
     } catch(e) {
       chunk.forEach((item, j) => {
-        const globalIdx = chunkStart + j;
+        const idx = start + j;
         state.bgmLibrary.push({
           id: generateId(), name: item.name, artist: item.artist || '未知',
           tags: item.notes ? item.notes.split(/[,，、\s]+/).filter(Boolean) : [],
-          lyrics: '', scene: '', style: '', notes: item.notes, addedAt: new Date().toISOString()
-        });
-        failCount++;
-        const statusEl = document.getElementById(`batchStatus_${globalIdx}`);
-        if (statusEl) statusEl.textContent = '⚠️';
-        logDiv.innerHTML += `<div style="font-size:12px; color:var(--warning); padding:2px 0;">⚠️ ${escapeHtml(item.name)} - AI失败，已手动添加</div>`;
+          lyrics: item.lyrics || '', scene: '', style: '', notes: item.notes,
+          addedAt: new Date().toISOString()
+        }); fail++;
+        const el = document.getElementById(`batchStatus_${idx}`); if (el) el.textContent = '⚠️';
+        log.innerHTML += `<div style="font-size:12px;color:var(--warning);padding:2px 0;">⚠️ ${escapeHtml(item.name)} - AI失败，已手动添加</div>`;
       });
     }
-
-    processed += chunk.length;
-    saveState();
+    processed += chunk.length; saveState();
     updateBatchProgress(processed, total, `已完成 ${processed}/${total}`);
     if (i + BATCH_SIZE < total) await new Promise(r => setTimeout(r, 1000));
   }
-
   renderBgmList(); updateStats(); updateFilterTags();
-  updateBatchProgress(total, total, `✅ 全部完成！成功 ${successCount} 首${failCount > 0 ? `，降级添加 ${failCount} 首` : ''}`);
+  updateBatchProgress(total, total, `✅ 完成！成功 ${ok} 首${fail ? `，降级 ${fail} 首` : ''}`);
   btn.innerHTML = '🚀 一键AI批量分析'; btn.disabled = false;
-  showToast(`批量添加完成！共 ${successCount + failCount} 首`, 'success');
+  showToast(`批量完成！共 ${ok + fail} 首`, 'success');
   state.batchParsed = [];
 }
 
-function updateBatchProgress(current, total, text) {
-  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-  document.getElementById('batchProgressBar').style.width = pct + '%';
+function updateBatchProgress(c, t, text) {
+  document.getElementById('batchProgressBar').style.width = (t > 0 ? Math.round(c/t*100) : 0) + '%';
   document.getElementById('batchProgressText').textContent = text;
 }
 
@@ -718,64 +710,55 @@ function updateBatchProgress(current, total, text) {
 function deleteBgm(id) {
   if (!confirm('确定删除？')) return;
   state.bgmLibrary = state.bgmLibrary.filter(b => b.id !== id);
-  saveState(); renderBgmList(); updateStats(); updateFilterTags();
-  showToast('已删除', 'info');
+  saveState(); renderBgmList(); updateStats(); updateFilterTags(); showToast('已删除', 'info');
 }
-
 function openEditModal(id) {
-  const bgm = state.bgmLibrary.find(b => b.id === id);
-  if (!bgm) return;
+  const b = state.bgmLibrary.find(x => x.id === id); if (!b) return;
   state.editingId = id;
-  document.getElementById('editName').value = bgm.name;
-  document.getElementById('editArtist').value = bgm.artist;
-  document.getElementById('editTags').value = (bgm.tags || []).join(', ');
-  document.getElementById('editLyrics').value = bgm.lyrics || '';
-  document.getElementById('editScene').value = bgm.scene || '';
+  document.getElementById('editName').value = b.name;
+  document.getElementById('editArtist').value = b.artist;
+  document.getElementById('editTags').value = (b.tags || []).join(', ');
+  document.getElementById('editLyrics').value = b.lyrics || '';
+  document.getElementById('editScene').value = b.scene || '';
   document.getElementById('editModal').classList.add('active');
 }
-
 function closeEditModal() { document.getElementById('editModal').classList.remove('active'); state.editingId = null; }
-
 function saveEdit() {
-  const bgm = state.bgmLibrary.find(b => b.id === state.editingId);
-  if (!bgm) return;
-  bgm.name = document.getElementById('editName').value.trim();
-  bgm.artist = document.getElementById('editArtist').value.trim();
-  bgm.tags = document.getElementById('editTags').value.split(/[,，、]+/).map(t => t.trim()).filter(Boolean);
-  bgm.lyrics = document.getElementById('editLyrics').value.trim();
-  bgm.scene = document.getElementById('editScene').value.trim();
+  const b = state.bgmLibrary.find(x => x.id === state.editingId); if (!b) return;
+  b.name = document.getElementById('editName').value.trim();
+  b.artist = document.getElementById('editArtist').value.trim();
+  b.tags = document.getElementById('editTags').value.split(/[,，、]+/).map(t => t.trim()).filter(Boolean);
+  b.lyrics = document.getElementById('editLyrics').value.trim();
+  b.scene = document.getElementById('editScene').value.trim();
   saveState(); renderBgmList(); updateStats(); updateFilterTags(); closeEditModal();
   showToast('已保存', 'success');
 }
-
 async function reanalyzeBgm(id) {
-  const bgm = state.bgmLibrary.find(b => b.id === id);
-  if (!bgm || !state.apiConfig.textModel) { showToast('请先选择文本模型', 'error'); return; }
+  const b = state.bgmLibrary.find(x => x.id === id);
+  if (!b || !state.apiConfig.textModel) { showToast('请先选择文本模型', 'error'); return; }
+  const userLyrics = b.lyrics && b.lyrics !== '暂无' ? b.lyrics : '';
   showToast('AI重新分析中...', 'info');
   try {
-    const results = await aiAnalyzeSongs([{ name: bgm.name, artist: bgm.artist, notes: bgm.notes }]);
+    const results = await aiAnalyzeSongs([{ name: b.name, artist: b.artist, lyrics: userLyrics, notes: b.notes }]);
     if (results.length > 0) {
       const r = results[0];
-      bgm.tags = r.mood_tags || bgm.tags; bgm.lyrics = r.lyrics_summary || bgm.lyrics;
-      bgm.scene = r.scene || bgm.scene; bgm.style = r.style || bgm.style;
+      b.tags = r.mood_tags || b.tags;
+      if (!userLyrics) b.lyrics = r.lyrics_summary || b.lyrics;
+      b.scene = r.scene || b.scene; b.style = r.style || b.style;
       saveState(); renderBgmList(); updateFilterTags();
-      showToast(`✅ "${bgm.name}" 已更新`, 'success');
+      showToast(`✅ "${b.name}" 已更新`, 'success');
     }
   } catch(e) { showToast('失败: ' + e.message, 'error'); }
 }
 
 // ==================== Rendering ====================
 function renderBgmList() {
-  const container = document.getElementById('bgmList');
-  const search = document.getElementById('searchInput').value.toLowerCase().trim();
-  let list = state.bgmLibrary;
-  if (search) list = list.filter(b => b.name.toLowerCase().includes(search) || b.artist.toLowerCase().includes(search) || (b.tags || []).some(t => t.toLowerCase().includes(search)) || (b.scene || '').toLowerCase().includes(search) || (b.lyrics || '').toLowerCase().includes(search));
-  if (state.activeFilter) list = list.filter(b => (b.tags || []).includes(state.activeFilter));
-  if (list.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">${state.bgmLibrary.length === 0 ? '🎵' : '🔍'}</div><p>${state.bgmLibrary.length === 0 ? 'BGM库还是空的，去添加第一首吧！' : '没有匹配结果'}</p></div>`;
-    return;
-  }
-  container.innerHTML = list.map(b => `
+  const c = document.getElementById('bgmList'), s = document.getElementById('searchInput').value.toLowerCase().trim();
+  let l = state.bgmLibrary;
+  if (s) l = l.filter(b => b.name.toLowerCase().includes(s) || b.artist.toLowerCase().includes(s) || (b.tags||[]).some(t => t.toLowerCase().includes(s)) || (b.scene||'').toLowerCase().includes(s) || (b.lyrics||'').toLowerCase().includes(s));
+  if (state.activeFilter) l = l.filter(b => (b.tags||[]).includes(state.activeFilter));
+  if (!l.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">${state.bgmLibrary.length ? '🔍' : '🎵'}</div><p>${state.bgmLibrary.length ? '没有匹配结果' : 'BGM库还是空的，去添加第一首吧！'}</p></div>`; return; }
+  c.innerHTML = l.map(b => `
     <div class="bgm-item">
       <div class="bgm-item-header">
         <div>
@@ -789,124 +772,102 @@ function renderBgmList() {
         </div>
       </div>
       ${b.tags && b.tags.length ? `<div class="bgm-item-tags">${b.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-      ${b.lyrics ? `<div class="bgm-item-lyrics">🎤 ${escapeHtml(b.lyrics)}</div>` : ''}
+      ${b.lyrics && b.lyrics !== '暂无' ? `<div class="bgm-item-lyrics">🎤 ${escapeHtml(b.lyrics)}</div>` : ''}
       ${b.scene ? `<p style="font-size:12px;color:var(--text-muted);margin-top:6px;">🎬 ${escapeHtml(b.scene)}</p>` : ''}
-    </div>
-  `).join('');
+    </div>`).join('');
 }
-
 function updateStats() {
   document.getElementById('totalCount').textContent = state.bgmLibrary.length;
-  const tags = new Set(); state.bgmLibrary.forEach(b => (b.tags || []).forEach(t => tags.add(t)));
-  document.getElementById('tagCount').textContent = tags.size;
+  const t = new Set(); state.bgmLibrary.forEach(b => (b.tags||[]).forEach(x => t.add(x)));
+  document.getElementById('tagCount').textContent = t.size;
 }
-
 function updateFilterTags() {
-  const counts = {}; state.bgmLibrary.forEach(b => (b.tags || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const c = document.getElementById('filterTags');
-  if (sorted.length === 0) { c.innerHTML = ''; return; }
-  c.innerHTML = `<span class="filter-tag ${!state.activeFilter ? 'active' : ''}" onclick="setFilter(null)">全部</span>` +
-    sorted.map(([t, n]) => `<span class="filter-tag ${state.activeFilter === t ? 'active' : ''}" onclick="setFilter('${escapeHtml(t)}')">${escapeHtml(t)} (${n})</span>`).join('');
+  const c = {}; state.bgmLibrary.forEach(b => (b.tags||[]).forEach(t => { c[t] = (c[t]||0)+1; }));
+  const s = Object.entries(c).sort((a,b) => b[1]-a[1]), el = document.getElementById('filterTags');
+  if (!s.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<span class="filter-tag ${!state.activeFilter?'active':''}" onclick="setFilter(null)">全部</span>` +
+    s.map(([t,n]) => `<span class="filter-tag ${state.activeFilter===t?'active':''}" onclick="setFilter('${escapeHtml(t)}')">${escapeHtml(t)} (${n})</span>`).join('');
 }
-
-function setFilter(tag) { state.activeFilter = tag; renderBgmList(); updateFilterTags(); }
+function setFilter(t) { state.activeFilter = t; renderBgmList(); updateFilterTags(); }
 function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 // ==================== Image Match ====================
-function handleImageUpload(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    state.uploadedImage = e.target.result;
-    const area = document.getElementById('imageUploadArea');
-    area.classList.add('has-image');
-    area.innerHTML = `<img src="${state.uploadedImage}" alt="uploaded" />`;
+function handleImageUpload(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = function(ev) {
+    state.uploadedImage = ev.target.result;
+    const a = document.getElementById('imageUploadArea');
+    a.classList.add('has-image'); a.innerHTML = `<img src="${state.uploadedImage}" alt="uploaded" />`;
     document.getElementById('matchControlCard').style.display = 'block';
   };
-  reader.readAsDataURL(file);
+  r.readAsDataURL(f);
 }
-
 function setupDragDrop() {
-  const area = document.getElementById('imageUploadArea');
-  if (!area) return;
-  area.addEventListener('dragover', e => { e.preventDefault(); area.style.borderColor = 'var(--accent)'; });
-  area.addEventListener('dragleave', () => { area.style.borderColor = ''; });
-  area.addEventListener('drop', e => {
-    e.preventDefault(); area.style.borderColor = '';
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) handleImageUpload({ target: { files: [file] } });
-  });
+  const a = document.getElementById('imageUploadArea'); if (!a) return;
+  a.addEventListener('dragover', e => { e.preventDefault(); a.style.borderColor = 'var(--accent)'; });
+  a.addEventListener('dragleave', () => { a.style.borderColor = ''; });
+  a.addEventListener('drop', e => { e.preventDefault(); a.style.borderColor = ''; const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) handleImageUpload({ target: { files: [f] } }); });
 }
-
 async function startMatch() {
   if (!state.uploadedImage) { showToast('请先上传图片', 'error'); return; }
-  if (state.bgmLibrary.length === 0) { showToast('BGM库为空', 'error'); return; }
-  const matchCount = parseInt(document.getElementById('matchCount').value);
-  const extra = document.getElementById('matchExtra').value.trim();
-  const btn = document.getElementById('matchBtn');
-  const resultsDiv = document.getElementById('matchResults');
+  if (!state.bgmLibrary.length) { showToast('BGM库为空', 'error'); return; }
+  const mc = parseInt(document.getElementById('matchCount').value), ex = document.getElementById('matchExtra').value.trim();
+  const btn = document.getElementById('matchBtn'), rd = document.getElementById('matchResults');
   btn.innerHTML = '<span class="spinner"></span> AI匹配中...'; btn.disabled = true;
   try {
-    const bgmStr = state.bgmLibrary.map((b, i) => `[${i+1}] ${b.name} - ${b.artist} | 标签:${(b.tags||[]).join(',')} | 场景:${b.scene||'无'} | 歌词:${b.lyrics||'无'}`).join('\n');
-    let visionOk = true, imgAnalysis = '';
-    try {
-      imgAnalysis = await callApi([{ role: 'user', content: [{ type: 'text', text: '用3-5个关键词描述这张图的氛围、情绪和风格。只输出关键词，逗号分隔。' }, { type: 'image_url', image_url: { url: state.uploadedImage } }] }], true);
-    } catch(e) { visionOk = false; }
-    const prompt = visionOk && imgAnalysis
-      ? `你是专业BGM匹配师。\n图片氛围关键词：${imgAnalysis}\n${extra ? `用户补充：${extra}` : ''}\n\nBGM库：\n${bgmStr}\n\n请挑选最匹配的${matchCount}首，按匹配度排列。\n\n严格JSON格式：\n{"image_mood":"氛围理解","recommendations":[{"index":序号,"name":"歌名","artist":"歌手","match_level":"极高/高/中","reason":"推荐理由","best_lyric":"最匹配的歌词"}]}`
-      : `你是专业BGM匹配师。\n${extra ? `用户描述：${extra}` : '请推荐通用BGM。'}\n\nBGM库：\n${bgmStr}\n\n推荐${matchCount}首。\n\nJSON格式：\n{"image_mood":"推断氛围","recommendations":[{"index":序号,"name":"歌名","artist":"歌手","match_level":"极高/高/中","reason":"理由","best_lyric":"歌词"}]}`;
-    const result = await callApi([{ role: 'user', content: prompt }]);
+    const bs = state.bgmLibrary.map((b,i) => `[${i+1}] ${b.name} - ${b.artist} | 标签:${(b.tags||[]).join(',')} | 场景:${b.scene||'无'} | 歌词:${b.lyrics||'无'}`).join('\n');
+    let vok = true, ia = '';
+    try { ia = await callApi([{ role:'user', content:[{type:'text',text:'用3-5个关键词描述这张图的氛围、情绪和风格。只输出关键词，逗号分隔。'},{type:'image_url',image_url:{url:state.uploadedImage}}]}], true); } catch(e) { vok = false; }
+    const p = vok && ia
+      ? `你是专业BGM匹配师。\n图片氛围关键词：${ia}\n${ex?`用户补充：${ex}`:''}\n\nBGM库：\n${bs}\n\n挑选最匹配的${mc}首，按匹配度排列。\n\n严格JSON：\n{"image_mood":"氛围理解","recommendations":[{"index":序号,"name":"歌名","artist":"歌手","match_level":"极高/高/中","reason":"推荐理由","best_lyric":"最匹配的歌词（如果BGM库中该歌曲的歌词是'暂无'或'无'，这里也填'无'，不要编造）"}]}`
+      : `你是专业BGM匹配师。\n${ex?`用户描述：${ex}`:'推荐通用BGM。'}\n\nBGM库：\n${bs}\n\n推荐${mc}首。\n\nJSON：\n{"image_mood":"推断氛围","recommendations":[{"index":序号,"name":"歌名","artist":"歌手","match_level":"极高/高/中","reason":"理由","best_lyric":"歌词（BGM库中无歌词则填'无'，不要编造）"}]}`;
+    const result = await callApi([{role:'user',content:p}]);
     const parsed = JSON.parse(result.match(/\{[\s\S]*\}/)[0]);
     let html = '';
-    if (parsed.image_mood) html += `<div class="card" style="border-color:var(--accent);margin-bottom:16px;"><div class="card-title">🎨 图片氛围</div><p style="color:var(--text-secondary);font-size:14px;">${escapeHtml(parsed.image_mood)}</p>${imgAnalysis ? `<p style="color:var(--text-muted);font-size:12px;margin-top:6px;">AI关键词：${escapeHtml(imgAnalysis)}</p>` : ''}</div>`;
+    if (parsed.image_mood) html += `<div class="card" style="border-color:var(--accent);margin-bottom:16px;"><div class="card-title">🎨 图片氛围</div><p style="color:var(--text-secondary);font-size:14px;">${escapeHtml(parsed.image_mood)}</p>${ia?`<p style="color:var(--text-muted);font-size:12px;margin-top:6px;">AI关键词：${escapeHtml(ia)}</p>`:''}</div>`;
     if (parsed.recommendations?.length) {
       html += '<div class="card"><div class="card-title">🎯 推荐结果</div>';
-      parsed.recommendations.forEach((r, i) => {
-        const lc = r.match_level === '极高' || r.match_level === '高' ? 'high' : 'medium';
-        html += `<div class="match-result"><div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-size:18px;font-weight:700;color:var(--accent);">#${i+1}</span><span style="font-size:16px;font-weight:600;margin-left:8px;">🎵 ${escapeHtml(r.name)}</span><span style="color:var(--text-muted);font-size:13px;margin-left:6px;">- ${escapeHtml(r.artist)}</span></div><span class="match-score ${lc}">匹配: ${escapeHtml(r.match_level)}</span></div><div class="match-reason">💡 ${escapeHtml(r.reason)}</div>${r.best_lyric && r.best_lyric !== '无' ? `<div class="bgm-item-lyrics" style="margin-top:8px;">🎤 ${escapeHtml(r.best_lyric)}</div>` : ''}</div>`;
+      parsed.recommendations.forEach((r,i) => {
+        const lc = r.match_level==='极高'||r.match_level==='高'?'high':'medium';
+        html += `<div class="match-result"><div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-size:18px;font-weight:700;color:var(--accent);">#${i+1}</span><span style="font-size:16px;font-weight:600;margin-left:8px;">🎵 ${escapeHtml(r.name)}</span><span style="color:var(--text-muted);font-size:13px;margin-left:6px;">- ${escapeHtml(r.artist)}</span></div><span class="match-score ${lc}">匹配: ${escapeHtml(r.match_level)}</span></div><div class="match-reason">💡 ${escapeHtml(r.reason)}</div>${r.best_lyric&&r.best_lyric!=='无'?`<div class="bgm-item-lyrics" style="margin-top:8px;">🎤 ${escapeHtml(r.best_lyric)}</div>`:''}</div>`;
       });
       html += '</div>';
     }
-    resultsDiv.innerHTML = html;
-    if (!visionOk) showToast('视觉模型不可用，已用文字匹配', 'info');
-  } catch(e) { resultsDiv.innerHTML = `<div class="card"><p style="color:var(--danger);">❌ 匹配失败: ${e.message}</p></div>`; }
+    rd.innerHTML = html;
+    if (!vok) showToast('视觉不可用，已用文字匹配', 'info');
+  } catch(e) { rd.innerHTML = `<div class="card"><p style="color:var(--danger);">❌ 匹配失败: ${e.message}</p></div>`; }
   finally { btn.innerHTML = '🎯 开始智能匹配'; btn.disabled = false; }
 }
 
 // ==================== Data ====================
 function exportData() {
-  if (state.bgmLibrary.length === 0) { showToast('BGM库为空', 'error'); return; }
-  const blob = new Blob([JSON.stringify({ version: '1.0', exportedAt: new Date().toISOString(), bgmCount: state.bgmLibrary.length, bgmLibrary: state.bgmLibrary }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  if (!state.bgmLibrary.length) { showToast('BGM库为空', 'error'); return; }
+  const b = new Blob([JSON.stringify({version:'1.0',exportedAt:new Date().toISOString(),bgmCount:state.bgmLibrary.length,bgmLibrary:state.bgmLibrary},null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b);
   a.download = `bgm_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
   showToast(`已导出 ${state.bgmLibrary.length} 首`, 'success');
 }
-
-function importData(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
+function importData(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = function(ev) {
     try {
-      const data = JSON.parse(e.target.result);
-      const list = data.bgmLibrary || data;
-      if (!Array.isArray(list)) throw new Error('格式错误');
-      const existing = new Set(state.bgmLibrary.map(b => b.id));
-      let added = 0;
-      list.forEach(b => { if (!existing.has(b.id)) { state.bgmLibrary.push(b); added++; } });
+      const d = JSON.parse(ev.target.result), l = d.bgmLibrary || d;
+      if (!Array.isArray(l)) throw new Error('格式错误');
+      const ex = new Set(state.bgmLibrary.map(b => b.id)); let n = 0;
+      l.forEach(b => { if (!ex.has(b.id)) { state.bgmLibrary.push(b); n++; } });
       saveState(); renderBgmList(); updateStats(); updateFilterTags();
-      showToast(`导入完成！新增 ${added} 首`, 'success');
+      showToast(`导入完成！新增 ${n} 首`, 'success');
     } catch(e) { showToast('导入失败: ' + e.message, 'error'); }
   };
-  reader.readAsText(file); event.target.value = '';
+  r.readAsText(f); e.target.value = '';
 }
-
 function clearAllData() {
-  if (!confirm('⚠️ 确定清空所有BGM数据？不可恢复！')) return;
-  if (!confirm('再次确认：真的要删除？')) return;
+  if (!confirm('⚠️ 确定清空？不可恢复！')) return;
+  if (!confirm('再次确认？')) return;
   state.bgmLibrary = []; state.activeFilter = null;
-  saveState(); renderBgmList(); updateStats(); updateFilterTags();
-  showToast('已清空', 'info');
+  saveState(); renderBgmList(); updateStats(); updateFilterTags(); showToast('已清空', 'info');
 }
 
 // ==================== Start ====================
